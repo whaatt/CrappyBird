@@ -1,0 +1,273 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Crappy Bird</title>
+		<link rel="stylesheet" href="style.css" type="text/css">
+		<link rel="shortcut icon" href="favicon.ico">
+		<script src="jquery.js"></script>
+		<script src="howler.js"></script>
+		
+		<script type="text/javascript">
+			(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+			(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+			m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+			})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+			ga('create', 'UA-757876-9', 'skalon.com');
+			ga('send', 'pageview');
+		</script>
+		
+		<script type="text/javascript">
+			window.onload = function(){
+				//ready message change
+				$('#info').html('Click To Start<br>Click To Control Mr. Craps');
+				
+				//globals
+				var loop;
+				var crapH;
+				var crapT;
+				var pipeV;
+				var bounce;
+				var loser;
+				
+				//pipe locations
+				var pipes = [];
+				var timer = 0;
+				var ready = true;
+				
+				var bounce = new Howl({
+					urls: ['bounce.mp3']
+				});
+				
+				var loser = new Howl({
+					urls: ['loser.mp3']
+				});
+			
+				//unpressed to start
+				var click = false;
+				var started = false;
+					
+				//document.addEventListener('keydown', keyDown, false);
+				document.addEventListener('keyup', onKey, false);
+				document.addEventListener('click', onClick, false);
+				
+				var canvas = document.getElementById("canvas");
+				var ctx = canvas.getContext("2d");
+				
+				//set FPS
+				var fr = 60;
+				
+				//canvas dimensions
+				var W = window.innerWidth;
+				var H = window.innerHeight;
+				canvas.width = W;
+				canvas.height = H;
+				
+				crap = new Image();
+				crap.src = 'crap.png';
+				
+				crapH = H/1.5 - 50;
+				crapW = W/4 - 50;
+				
+				crap.onload = function(){
+					ctx.drawImage(crap, crapW, crapH, 100, 100);
+				}
+				
+				function clearCanvas(){
+					ctx.clearRect(0, 0, W, H);
+				}
+				
+				function drawCrap(){
+					if (click){
+						timeC = 0.15;
+						dist = H / 10;
+						frames = fr * timeC;
+						
+						if (upDur < frames){
+							crapH -= dist / frames
+							upDur += 1;
+						}
+						
+						else {
+							click = false;
+							crapH += crapV / fr;
+						}
+					}
+					
+					else {
+						//crapV += crapA / fr;
+						crapH += crapV / fr;
+					}
+					
+					if (crapH + H/99 >= H - 100){
+						end();
+					}
+					
+					if (crapH - H/99 <= 0){
+						crapH = 0;
+					}
+					
+					//draw the updated position of the crap
+					ctx.drawImage(crap, crapW, crapH, 100, 100);
+				}
+				
+				function drawPipe(){
+					seconds = 2;
+					frames = fr * seconds;
+					gap = 300;
+					
+					for (var i = pipes.length - 1; i >= 0; i--){
+						if (pipes[i][0] + 100 <= 0){
+							pipes.splice(i, 1);
+							continue;
+						}
+						
+						ctx.fillStyle = 'green';
+						ctx.fillRect(pipes[i][0], 0, 100, pipes[i][1]);
+						ctx.fillRect(pipes[i][0], pipes[i][2], 100, H - pipes[i][2]);
+						pipes[i][0] -= pipeV / fr;
+					}
+					
+					if (timer >= frames){
+						timer = 0;
+						topBreak = Math.floor(Math.random() * (H - 500)) + 100;
+						bottomBreak = topBreak + gap;
+						pipes.push([W, topBreak, bottomBreak]);
+					}
+					
+					else {
+						timer += 1;
+					}
+				}
+				
+				function checkHit(){
+					if (pipes.length > 0){
+						if (crapW > pipes[0][0] - 100 && crapW < pipes[0][0] + 100){
+							//reset scored
+							scored = false;
+							
+							if (crapH > pipes[0][1] && crapH + 100 < pipes[0][2]){
+								return false;
+							}
+							
+							else {
+								end();
+								return true;
+							}
+						}
+						
+						//no hit found
+						return false;
+					}
+					
+					//default case
+					return false;
+				}
+				
+				function setScore(){
+					if (pipes.length > 0 && !scored){
+						if (crapW >= pipes[0][0] + 100){
+							score += 1;
+							scored = true;
+						}
+					}
+					
+					ctx.fillStyle = 'black';
+					ctx.font = '30px Arial';
+					ctx.fillText('Score: ' + score, 5, 30);
+				}
+				
+				function mainLoop(){
+					clearCanvas();
+					drawCrap();
+					drawPipe();
+					checkHit();
+					setScore();
+				}
+				
+				function start(){
+					crapH = H / 1.5 - 50;
+					crapW = W / 4 - 50;
+					crapV = H / 1.5;
+					pipeV = H / 3;
+					crapA = 1000;
+					crapT = 0;
+					upDur = 0;
+					timer = 0;
+					score = 0;
+					scored = false;
+					pipes = []
+					
+					$(document).ready(function(){ 
+						//remove status
+						$('#status').html('');
+						$('#info').html('');
+					});
+					
+					//draw initial position of our crap
+					ctx.drawImage(crap, crapW, crapH, 100, 100);
+					
+					started = true;
+					//start frames at 33 FPS
+					loop = setInterval(mainLoop, 1000 / fr);
+				}
+				
+				function end(){
+					started = false;
+					clearInterval(loop);
+					bounce.stop();
+					loser.stop();
+					loser.play();
+					ready = false;
+					
+					$('#status').html('Game Over').removeClass('yes').addClass('no');
+					$('#info').html('Press Any Key To Reset<br>Made By Sanjay Kannan');
+				}
+				
+				function keyDown(e) {
+					if (e.keyCode == 38){
+						//unused
+					}
+				}
+
+				function onKey(e){
+					if (ready == false){
+						ready = true;
+						clearCanvas();
+						$('#status').html('Crappy Bird').removeClass('no').addClass('yes');
+						$('#info').html('Click To Start<br>Click To Control Mr. Craps');
+						
+						crapH = H / 1.5 - 50;
+						crapW = W / 4 - 50;
+						ctx.drawImage(crap, crapW, crapH, 100, 100);
+					}
+				}
+				
+				function onClick(e){
+					if (started == false){
+						if (ready == true){
+							started = true;
+							clearCanvas();
+							start();
+						}
+					}
+					
+					else if (click == false){
+						bounce.stop();
+						bounce.play();
+						click = true;
+						upDur = 0;
+						target = crapH - H/10;
+					}
+				}
+			}
+		</script>
+	</head>
+	<body>
+		<div id="middle">
+			<canvas id="canvas"></canvas>
+			<div id="status" class="yes">Crappy Bird</div>
+			<br><br><div id="info" class="other">Loading...</div>
+		</div>
+	</body>
+</html>
